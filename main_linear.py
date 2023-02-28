@@ -50,7 +50,7 @@ def parse_option():
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50')
     parser.add_argument('--dataset', type=str, default='cifar10',
-                        choices=['cifar10', 'cifar100'], help='dataset')
+                        choices=['cifar10', 'cifar100', 'path'], help='dataset')
 
     # other setting
     parser.add_argument('--cosine', action='store_true',
@@ -64,7 +64,7 @@ def parse_option():
     opt = parser.parse_args()
 
     # set the path according to the environment
-    opt.data_folder = './datasets/'
+    opt.data_folder = '/home/ju/truenas/Jonathan/jonathan/hand-data-fall2021/image-data-subset7'
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])
@@ -94,6 +94,8 @@ def parse_option():
         opt.n_cls = 10
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
+    elif opt.dataset == 'path':
+        opt.n_cls = 7
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 

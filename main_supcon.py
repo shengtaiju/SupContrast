@@ -5,10 +5,13 @@ import sys
 import argparse
 import time
 import math
+import random, cv2
+from PIL import Image
 
 import tensorboard_logger as tb_logger
 import torch
 import torch.backends.cudnn as cudnn
+
 from torchvision import transforms, datasets
 
 from util import TwoCropTransform, AverageMeter
@@ -22,6 +25,38 @@ try:
     from apex import amp, optimizers
 except ImportError:
     pass
+
+
+class MySupConDataset(torch.utils.data.Dataset):
+    def __init__(self, data, targets):
+        self.data = data
+        self.targets = torch.LongTensor(targets)
+        self.transforms = transforms.Compose([
+                        transforms.Resize((112,112)),
+                        transforms.ToTensor(),
+                        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ])
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        file = self.data[index]
+        y = self.targets[index]
+        file_path = file.split('frame')[0]
+        all_imgs = os.listdir(file_path)
+        rand_imgs = random.sample(all_imgs, 2)
+        im1, im2 = rand_imgs[0], rand_imgs[1]
+
+        im1 = cv2.imread(os.path.join(file_path, im1))
+        im2 = cv2.imread(os.path.join(file_path, im2))
+        im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
+        im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
+        im1 = self.transforms(Image.fromarray(im1))
+        im2 = self.transforms(Image.fromarray(im2))
+
+        return [im1, im2], y 
+
 
 
 def parse_option():
@@ -145,6 +180,7 @@ def set_loader(opt):
 
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
+        # transforms.Resize((opt.size, opt.size)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomApply([
             transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
@@ -163,8 +199,20 @@ def set_loader(opt):
                                           transform=TwoCropTransform(train_transform),
                                           download=True)
     elif opt.dataset == 'path':
-        train_dataset = datasets.ImageFolder(root=opt.data_folder,
-                                            transform=TwoCropTransform(train_transform))
+        train_labels = []
+        train_data_rgb = []
+        classes = ['rub_back', 'rub_back_fingers', 'rub_palm', 'rub_palm_fingers_interlaced', 'rub_thumb', 'rub_tips', 'rub_wrist']
+        for i, clas in enumerate(classes):
+            rgb_path = os.path.join(opt.data_folder, clas)
+            train_rgb_images = sorted(os.listdir(rgb_path))
+            for j, rgb_image in enumerate(train_rgb_images):
+                train_data_rgb.append(os.path.join(rgb_path, rgb_image))
+                train_labels.append(i)
+
+        train_dataset = MySupConDataset(train_data_rgb, train_labels)
+
+        # train_dataset = datasets.ImageFolder(root=opt.data_folder,
+        #                                     transform=TwoCropTransform(train_transform))
     else:
         raise ValueError(opt.dataset)
 

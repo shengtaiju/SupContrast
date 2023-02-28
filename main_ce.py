@@ -123,18 +123,23 @@ def set_loader(opt):
     elif opt.dataset == 'cifar100':
         mean = (0.5071, 0.4867, 0.4408)
         std = (0.2675, 0.2565, 0.2761)
+    elif opt.dataset == 'path':
+        mean = (0.485, 0.456, 0.406)
+        std = (0.229, 0.224, 0.225)
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
     normalize = transforms.Normalize(mean=mean, std=std)
 
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+        # transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+        transforms.Resize((64, 64)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         normalize,
     ])
 
     val_transform = transforms.Compose([
+        transforms.Resize((64, 64)),
         transforms.ToTensor(),
         normalize,
     ])
@@ -153,6 +158,11 @@ def set_loader(opt):
         val_dataset = datasets.CIFAR100(root=opt.data_folder,
                                         train=False,
                                         transform=val_transform)
+    elif opt.dataset == 'path':
+        train_dataset = datasets.ImageFolder(root=opt.data_folder + '/train',
+                                             transform=train_transform)
+        val_dataset = datasets.ImageFolder(root=opt.data_folder + '/test',
+                                           transform=val_transform)
     else:
         raise ValueError(opt.dataset)
 
